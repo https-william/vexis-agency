@@ -4,7 +4,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Vexis — AI Automation Agency",
-  description: "Command center for 6 autonomous AI agents. Lead generation, sales automation, and business operations at scale.",
+  description: "Command center for 6 autonomous AI agents powering lead generation, sales, and operations.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -19,8 +19,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="noise antialiased">
-        <div className="orb orb-gold" />
-        <div className="orb orb-cyan" />
+        {/* Aurora mesh background */}
+        <div className="aurora">
+          <div className="aurora-orb aurora-1" />
+          <div className="aurora-orb aurora-2" />
+          <div className="aurora-orb aurora-3" />
+        </div>
         <div className="relative z-10">{children}</div>
         <Analytics />
       </body>
