@@ -1,0 +1,103 @@
+{
+    "name": "Vexis — Follow-up Scheduler",
+    "nodes": [
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "hours",
+                            "hoursInterval": 8
+                        }
+                    ]
+                }
+            },
+            "name": "Every 8 Hours",
+            "type": "n8n-nodes-base.scheduleTrigger",
+            "typeVersion": 1,
+            "position": [
+                240,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "url": "http://gateway:8000/api/agents/nova/chat",
+                "method": "POST",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "message",
+                            "value": "Check for stale leads that haven't replied in over 3 days. For each stale lead, decide whether to: 1) Send a gentle follow-up, 2) Try a different angle (case study approach), or 3) Send a break-up email if it's been over 14 days. Report back with what you did."
+                        }
+                    ]
+                }
+            },
+            "name": "Trigger Nova Follow-up Check",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                460,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "url": "http://gateway:8000/api/agents/sentinel/chat",
+                "method": "POST",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "message",
+                            "value": "=Follow-up check completed. Results: {{$json.message}}. Log this for the daily report."
+                        }
+                    ]
+                }
+            },
+            "name": "Log to Sentinel",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                680,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Every 8 Hours": {
+            "main": [
+                [
+                    {
+                        "node": "Trigger Nova Follow-up Check",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Trigger Nova Follow-up Check": {
+            "main": [
+                [
+                    {
+                        "node": "Log to Sentinel",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    },
+    "tags": [
+        {
+            "name": "vexis"
+        },
+        {
+            "name": "follow-up"
+        }
+    ]
+}

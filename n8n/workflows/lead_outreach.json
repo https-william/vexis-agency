@@ -1,0 +1,128 @@
+{
+  "name": "Vexis — Lead Outreach",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lead-outreach",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      },
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://gateway:8000/api/agents/echo/chat",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "message",
+              "value": "=Draft a personalized outreach email for {{$json.lead_name}} ({{$json.company}}). Their gaps: {{$json.gaps}}. Pitch angle: {{$json.pitch_angle}}. Score: {{$json.score}}/10. Keep it under 150 words, professional but warm, with a clear CTA to book a call."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Draft Email via Echo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://mautic:8080/api/emails/new",
+        "method": "POST",
+        "authentication": "basicAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "name",
+              "value": "=Outreach - {{$json.lead_name}}"
+            },
+            {
+              "name": "subject",
+              "value": "=Quick idea for {{$json.company}}"
+            },
+            {
+              "name": "customHtml",
+              "value": "={{$node['Draft Email via Echo'].json.message}}"
+            },
+            {
+              "name": "emailType",
+              "value": "template"
+            }
+          ]
+        }
+      },
+      "name": "Create Email in Mautic",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://mautic:8080/api/emails/{{$json.email.id}}/contact/{{$json.mautic_contact_id}}/send",
+        "method": "POST",
+        "authentication": "basicAuth"
+      },
+      "name": "Send via Mautic",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://gateway:8000/api/agents/nova/chat",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "message",
+              "value": "=Outreach email sent to {{$json.lead_name}} at {{$json.company}}. Email subject: 'Quick idea for {{$json.company}}'. Track for replies."
+            }
+          ]
+        }
+      },
+      "name": "Notify Nova",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1120, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [{ "node": "Draft Email via Echo", "type": "main", "index": 0 }]
+      ]
+    },
+    "Draft Email via Echo": {
+      "main": [
+        [{ "node": "Create Email in Mautic", "type": "main", "index": 0 }]
+      ]
+    },
+    "Create Email in Mautic": {
+      "main": [
+        [{ "node": "Send via Mautic", "type": "main", "index": 0 }]
+      ]
+    },
+    "Send via Mautic": {
+      "main": [
+        [{ "node": "Notify Nova", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    { "name": "vexis" },
+    { "name": "outreach" }
+  ]
+}

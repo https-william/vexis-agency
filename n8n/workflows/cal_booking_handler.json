@@ -1,0 +1,131 @@
+{
+    "name": "Vexis — Cal.com Booking Handler",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "cal-booking",
+                "responseMode": "onReceived"
+            },
+            "name": "Cal.com Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                240,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "url": "http://gateway:8000/api/agents/scout/chat",
+                "method": "POST",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "message",
+                            "value": "=A call has been booked with {{$json.payload.attendees[0].name}} ({{$json.payload.attendees[0].email}}) for {{$json.payload.startTime}}. Research this person and their company. Generate a research brief with: company overview, key decision makers, tech stack, pain points, and opportunities. This is for Atlas's call prep."
+                        }
+                    ]
+                }
+            },
+            "name": "Scout Research",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                460,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "url": "http://gateway:8000/api/agents/atlas/chat",
+                "method": "POST",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "message",
+                            "value": "=Call booked with {{$json.payload.attendees[0].name}} at {{$json.payload.startTime}}. Scout's research brief: {{$node['Scout Research'].json.message}}. Please prep a call brief with: 1) Key talking points, 2) Proposed solution and pricing range, 3) Potential objections and responses, 4) Next steps after the call. Also create a fulfillment task estimate if they agree to proceed."
+                        }
+                    ]
+                }
+            },
+            "name": "Atlas Call Prep",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                680,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "url": "http://gateway:8000/api/agents/sentinel/chat",
+                "method": "POST",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "message",
+                            "value": "=New call booked: {{$json.payload.attendees[0].name}} at {{$json.payload.startTime}}. Scout researched, Atlas prepped. Log for daily report."
+                        }
+                    ]
+                }
+            },
+            "name": "Log to Sentinel",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                900,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Cal.com Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Scout Research",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Scout Research": {
+            "main": [
+                [
+                    {
+                        "node": "Atlas Call Prep",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Atlas Call Prep": {
+            "main": [
+                [
+                    {
+                        "node": "Log to Sentinel",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    },
+    "tags": [
+        {
+            "name": "vexis"
+        },
+        {
+            "name": "cal-booking"
+        }
+    ]
+}

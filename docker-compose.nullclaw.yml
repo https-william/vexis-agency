@@ -1,0 +1,141 @@
+# ─────────────────────────────────────────────────────────────────────────
+# Vexis Agency — NullClaw Agent Services (docker-compose overlay)
+#
+# Run alongside the main docker-compose.yml:
+#   docker-compose -f docker-compose.yml -f docker-compose.nullclaw.yml up
+#
+# Prerequisites:
+#   1. Download/build the NullClaw binary:
+#      git clone https://github.com/nullclaw/nullclaw.git /tmp/nullclaw
+#      cd /tmp/nullclaw && zig build -Doptimize=ReleaseSmall
+#      cp zig-out/bin/nullclaw ./nullclaw-bin/nullclaw
+#
+#   2. Or install via Homebrew and copy:
+#      brew install nullclaw
+#      cp $(which nullclaw) ./nullclaw-bin/nullclaw
+#
+# Each agent runs as its own 678KB instance using ~1MB RAM.
+# Total for all 6 agents: ~4MB binary + ~6MB RAM.
+# ─────────────────────────────────────────────────────────────────────────
+
+services:
+  # ─── Archer — Lead Hunter (port 3010) ───
+  nullclaw-archer:
+    build:
+      context: ./nullclaw
+      dockerfile: Dockerfile
+    container_name: vexis-archer
+    restart: unless-stopped
+    ports:
+      - "3010:3000"
+    environment:
+      - GROQ_API_KEY_1=${GROQ_API_KEY_1:-}
+    volumes:
+      - ./nullclaw-bin/nullclaw:/usr/local/bin/nullclaw:ro
+      - ./nullclaw/archer/config.json:/agent/config.json:ro
+      - archer_data:/data/archer
+    networks:
+      - vexis-net
+
+  # ─── Nova — Sales Closer (port 3011) ───
+  nullclaw-nova:
+    build:
+      context: ./nullclaw
+      dockerfile: Dockerfile
+    container_name: vexis-nova
+    restart: unless-stopped
+    ports:
+      - "3011:3000"
+    environment:
+      - GROQ_API_KEY_2=${GROQ_API_KEY_2:-}
+    volumes:
+      - ./nullclaw-bin/nullclaw:/usr/local/bin/nullclaw:ro
+      - ./nullclaw/nova/config.json:/agent/config.json:ro
+      - nova_data:/data/nova
+    networks:
+      - vexis-net
+
+  # ─── Scout — Research Analyst (port 3012) ───
+  nullclaw-scout:
+    build:
+      context: ./nullclaw
+      dockerfile: Dockerfile
+    container_name: vexis-scout
+    restart: unless-stopped
+    ports:
+      - "3012:3000"
+    environment:
+      - GROQ_API_KEY_3=${GROQ_API_KEY_3:-}
+    volumes:
+      - ./nullclaw-bin/nullclaw:/usr/local/bin/nullclaw:ro
+      - ./nullclaw/scout/config.json:/agent/config.json:ro
+      - scout_data:/data/scout
+    networks:
+      - vexis-net
+
+  # ─── Echo — Content Writer (port 3013) ───
+  nullclaw-echo:
+    build:
+      context: ./nullclaw
+      dockerfile: Dockerfile
+    container_name: vexis-echo
+    restart: unless-stopped
+    ports:
+      - "3013:3000"
+    environment:
+      - GROQ_API_KEY_4=${GROQ_API_KEY_4:-}
+    volumes:
+      - ./nullclaw-bin/nullclaw:/usr/local/bin/nullclaw:ro
+      - ./nullclaw/echo/config.json:/agent/config.json:ro
+      - echo_data:/data/echo
+    networks:
+      - vexis-net
+
+  # ─── Atlas — Co-Founder & Strategist (port 3014) ───
+  nullclaw-atlas:
+    build:
+      context: ./nullclaw
+      dockerfile: Dockerfile
+    container_name: vexis-atlas
+    restart: unless-stopped
+    ports:
+      - "3014:3000"
+    environment:
+      - GROQ_API_KEY_5=${GROQ_API_KEY_5:-}
+    volumes:
+      - ./nullclaw-bin/nullclaw:/usr/local/bin/nullclaw:ro
+      - ./nullclaw/atlas/config.json:/agent/config.json:ro
+      - atlas_data:/data/atlas
+    networks:
+      - vexis-net
+
+  # ─── Sentinel — Ops & Monitor (port 3015) ───
+  nullclaw-sentinel:
+    build:
+      context: ./nullclaw
+      dockerfile: Dockerfile
+    container_name: vexis-sentinel
+    restart: unless-stopped
+    ports:
+      - "3015:3000"
+    environment:
+      - GROQ_API_KEY_5=${GROQ_API_KEY_5:-}
+    volumes:
+      - ./nullclaw-bin/nullclaw:/usr/local/bin/nullclaw:ro
+      - ./nullclaw/sentinel/config.json:/agent/config.json:ro
+      - sentinel_data:/data/sentinel
+    networks:
+      - vexis-net
+
+volumes:
+  archer_data:
+  nova_data:
+  scout_data:
+  echo_data:
+  atlas_data:
+  sentinel_data:
+
+
+networks:
+  vexis-net:
+    external: true

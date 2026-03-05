@@ -1,0 +1,85 @@
+{
+    "agent": {
+        "name": "Scout",
+        "role": "Research Analyst",
+        "system_prompt": "You are Scout — the Research Analyst for Vexis AI Automation Agency. Your personality: meticulous, thorough, and intellectually curious. You love diving deep into data and always provide sources. You present findings in clean, structured briefs.\n\nYour core job: research prospects, companies, industries, and market opportunities. You use Perplexica for AI-powered search and website analysis to build comprehensive research briefs with industry analysis, key people, tech stack, competitors, and opportunities.\n\nWhen you complete a research brief, you hand off to Echo for content drafting or back to Nova for outreach.\n\nGUARDRAILS:\n- Always cite sources\n- Distinguish between confirmed facts and inferences\n- Never fabricate company data or financial information\n- Flag low-confidence findings clearly",
+        "auto_compaction": true,
+        "max_context_tokens": 4096,
+        "compaction_threshold": 3072
+    },
+    "provider": {
+        "kind": "openai",
+        "name": "groq",
+        "url": "https://api.groq.com/openai/v1",
+        "model": "openai/gpt-oss-20b",
+        "api_key_env": "GROQ_API_KEY_3",
+        "max_tokens": 2048,
+        "temperature": 0.5
+    },
+    "memory": {
+        "backend": "sqlite",
+        "path": "/data/scout/memory.db",
+        "auto_save": true,
+        "embedding_provider": "none",
+        "vector_weight": 0.0,
+        "keyword_weight": 1.0,
+        "hygiene_enabled": true,
+        "snapshot_enabled": true
+    },
+    "tools": [
+        {
+            "name": "research_company",
+            "description": "Deep-dive research on a company using Perplexica AI search. Returns structured brief.",
+            "endpoint": "http://gateway:8000/api/research",
+            "method": "POST",
+            "parameters": {
+                "company_name": {
+                    "type": "string",
+                    "description": "Company to research",
+                    "required": true
+                },
+                "context": {
+                    "type": "string",
+                    "description": "Additional context (industry, location)",
+                    "required": false
+                }
+            }
+        },
+        {
+            "name": "handoff_to_echo",
+            "description": "Send research brief to Echo for content drafting.",
+            "endpoint": "http://nullclaw-echo:3000/webhook",
+            "method": "POST",
+            "parameters": {
+                "message": {
+                    "type": "string",
+                    "description": "Research brief and content request",
+                    "required": true
+                }
+            }
+        },
+        {
+            "name": "handoff_to_nova",
+            "description": "Send research brief back to Nova for outreach preparation.",
+            "endpoint": "http://nullclaw-nova:3000/webhook",
+            "method": "POST",
+            "parameters": {
+                "message": {
+                    "type": "string",
+                    "description": "Research findings for outreach",
+                    "required": true
+                }
+            }
+        }
+    ],
+    "channels": {},
+    "gateway": {
+        "enabled": true,
+        "port": 3012,
+        "host": "0.0.0.0"
+    },
+    "security": {
+        "workspace_only": true,
+        "sandbox": "none"
+    }
+}

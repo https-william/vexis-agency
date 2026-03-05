@@ -1,0 +1,114 @@
+{
+    "agent": {
+        "name": "Nova",
+        "role": "Sales Closer",
+        "system_prompt": "You are Nova — the Sales Closer for Vexis AI Automation Agency. Your personality: charismatic, empathetic, and strategically aggressive. You know when to push and when to pull back. You speak with confidence and always have a plan B.\n\nYour core job: convert leads into paying clients. You craft personalized outreach, handle objections, follow up on stale leads, and close deals. You work with Echo for email drafting and Chatwoot/Mautic for multi-channel messaging.\n\nWhen you close a deal, you hand off to Atlas for contract creation and fulfillment task planning.\n\nGUARDRAILS:\n- Never promise specific pricing without Atlas's approval\n- Never send more than 3 follow-ups to the same prospect\n- Always be honest about what the agency can deliver\n- Never use fake testimonials or fabricated case studies",
+        "auto_compaction": true,
+        "max_context_tokens": 4096,
+        "compaction_threshold": 3072
+    },
+    "provider": {
+        "kind": "openai",
+        "name": "groq",
+        "url": "https://api.groq.com/openai/v1",
+        "model": "openai/gpt-oss-120b",
+        "api_key_env": "GROQ_API_KEY_2",
+        "max_tokens": 2048,
+        "temperature": 0.8
+    },
+    "memory": {
+        "backend": "sqlite",
+        "path": "/data/nova/memory.db",
+        "auto_save": true,
+        "embedding_provider": "none",
+        "vector_weight": 0.0,
+        "keyword_weight": 1.0,
+        "hygiene_enabled": true,
+        "snapshot_enabled": true
+    },
+    "tools": [
+        {
+            "name": "send_outreach",
+            "description": "Send an outreach message to a prospect via Chatwoot (WhatsApp/Email).",
+            "endpoint": "http://gateway:8000/api/outreach/send",
+            "method": "POST",
+            "parameters": {
+                "lead_name": {
+                    "type": "string",
+                    "description": "Name of the prospect",
+                    "required": true
+                },
+                "contact": {
+                    "type": "string",
+                    "description": "Email or phone number",
+                    "required": true
+                },
+                "message": {
+                    "type": "string",
+                    "description": "Outreach message to send",
+                    "required": true
+                },
+                "channel": {
+                    "type": "string",
+                    "description": "Channel: whatsapp, email, or sms",
+                    "required": false
+                }
+            }
+        },
+        {
+            "name": "check_stale_leads",
+            "description": "Check for prospects who haven't replied in 3+ days and need follow-up.",
+            "endpoint": "http://gateway:8000/api/outreach/stale",
+            "method": "GET",
+            "parameters": {}
+        },
+        {
+            "name": "handoff_to_atlas",
+            "description": "Forward closed deal to Atlas for contract creation and fulfillment planning.",
+            "endpoint": "http://nullclaw-atlas:3000/webhook",
+            "method": "POST",
+            "parameters": {
+                "message": {
+                    "type": "string",
+                    "description": "Deal details and client requirements",
+                    "required": true
+                }
+            }
+        },
+        {
+            "name": "handoff_to_echo",
+            "description": "Ask Echo to draft a personalized email or content piece.",
+            "endpoint": "http://nullclaw-echo:3000/webhook",
+            "method": "POST",
+            "parameters": {
+                "message": {
+                    "type": "string",
+                    "description": "Brief for the content to create",
+                    "required": true
+                }
+            }
+        }
+    ],
+    "channels": {
+        "whatsapp": {
+            "enabled": false,
+            "accounts": []
+        }
+    },
+    "gateway": {
+        "enabled": true,
+        "port": 3011,
+        "host": "0.0.0.0"
+    },
+    "security": {
+        "workspace_only": true,
+        "sandbox": "none"
+    },
+    "cron": [
+        {
+            "name": "follow_up_check",
+            "schedule": "0 */8 * * *",
+            "prompt": "Check for stale leads that haven't replied in over 3 days. For each, decide: gentle follow-up, case study angle, or break-up email. Execute the best strategy."
+        }
+    ]
+}

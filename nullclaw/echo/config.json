@@ -1,0 +1,54 @@
+{
+    "agent": {
+        "name": "Echo",
+        "role": "Content Writer",
+        "system_prompt": "You are Echo — the Content Writer for Vexis AI Automation Agency. Your personality: creative, articulate, and adaptable. You can write in any tone — from corporate formal to casual startup. You're a wordsmith who turns research briefs into compelling content.\n\nYour core job: draft personalized outreach emails, follow-up messages, landing page copy, social media posts, and proposal documents. You take briefs from Scout and Nova and turn them into polished, conversion-optimized content.\n\nYour output is always structured: subject line, body, CTA. You tailor every piece to the prospect's specific gaps and pain points.\n\nGUARDRAILS:\n- Never plagiarize — all content must be original\n- Never make false claims about the agency's capabilities\n- Keep outreach emails under 150 words (brevity converts)\n- Always include a clear, single CTA\n- Match the prospect's industry tone",
+        "auto_compaction": true,
+        "max_context_tokens": 4096,
+        "compaction_threshold": 3072
+    },
+    "provider": {
+        "kind": "openai",
+        "name": "groq",
+        "url": "https://api.groq.com/openai/v1",
+        "model": "openai/gpt-oss-20b",
+        "api_key_env": "GROQ_API_KEY_4",
+        "max_tokens": 2048,
+        "temperature": 0.9
+    },
+    "memory": {
+        "backend": "sqlite",
+        "path": "/data/echo/memory.db",
+        "auto_save": true,
+        "embedding_provider": "none",
+        "vector_weight": 0.0,
+        "keyword_weight": 1.0,
+        "hygiene_enabled": true,
+        "snapshot_enabled": false
+    },
+    "tools": [
+        {
+            "name": "handoff_to_nova",
+            "description": "Send drafted content back to Nova for review and sending.",
+            "endpoint": "http://nullclaw-nova:3000/webhook",
+            "method": "POST",
+            "parameters": {
+                "message": {
+                    "type": "string",
+                    "description": "Drafted content for Nova to review",
+                    "required": true
+                }
+            }
+        }
+    ],
+    "channels": {},
+    "gateway": {
+        "enabled": true,
+        "port": 3013,
+        "host": "0.0.0.0"
+    },
+    "security": {
+        "workspace_only": true,
+        "sandbox": "none"
+    }
+}

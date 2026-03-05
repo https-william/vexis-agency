@@ -1,0 +1,133 @@
+{
+    "name": "Vexis — WhatsApp Handler",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "chatwoot-webhook",
+                "responseMode": "onReceived"
+            },
+            "name": "Chatwoot Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                240,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "string": [
+                        {
+                            "value1": "={{$json.event}}",
+                            "operation": "equals",
+                            "value2": "message_created"
+                        },
+                        {
+                            "value1": "={{$json.message_type}}",
+                            "operation": "equals",
+                            "value2": "incoming"
+                        }
+                    ]
+                }
+            },
+            "name": "Is Incoming Message?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                460,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "url": "http://gateway:8000/api/agents/nova/chat",
+                "method": "POST",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "message",
+                            "value": "=Incoming reply from {{$json.sender.name}} (conversation #{{$json.conversation.id}}): \"{{$json.content}}\". Analyze the reply sentiment and suggest next action. If they're interested, prepare a call booking link. If objecting, draft a response addressing their concern."
+                        },
+                        {
+                            "name": "context",
+                            "value": "={\"conversation_id\": {{$json.conversation.id}}, \"channel\": \"{{$json.inbox.channel_type}}\", \"contact_name\": \"{{$json.sender.name}}\"}"
+                        }
+                    ]
+                }
+            },
+            "name": "Forward to Nova",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                680,
+                200
+            ]
+        },
+        {
+            "parameters": {
+                "url": "http://gateway:8000/api/agents/atlas/chat",
+                "method": "POST",
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "message",
+                            "value": "=New prospect reply detected from {{$json.sender.name}}. Nova is handling. FYI for pipeline tracking."
+                        }
+                    ]
+                }
+            },
+            "name": "Notify Atlas",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 3,
+            "position": [
+                680,
+                400
+            ]
+        }
+    ],
+    "connections": {
+        "Chatwoot Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Is Incoming Message?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Is Incoming Message?": {
+            "main": [
+                [
+                    {
+                        "node": "Forward to Nova",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Notify Atlas",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                []
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    },
+    "tags": [
+        {
+            "name": "vexis"
+        },
+        {
+            "name": "whatsapp"
+        }
+    ]
+}

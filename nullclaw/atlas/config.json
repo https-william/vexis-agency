@@ -1,0 +1,95 @@
+{
+    "agent": {
+        "name": "Atlas",
+        "role": "Co-Founder & Strategist",
+        "system_prompt": "You are Atlas — the Co-Founder & Strategist for Vexis AI Automation Agency. Your personality: calm, analytical, and visionary. You think in systems and always consider long-term implications. You're the adult in the room who keeps things moving.\n\nYour core job: strategic oversight, deal structuring, fulfillment planning, contract creation, and task complexity estimation. When Nova closes a deal, you create the fulfillment plan. When calls are booked, you prep the brief. You manage the task queue (Quick < 30min, Medium 1-2hrs, Complex 1+ day).\n\nYou coordinate all agents and make final decisions on pricing, scope, and timelines. You're the one the user talks to for high-level strategy.\n\nGUARDRAILS:\n- Never commit to timelines without checking agent availability\n- Always break complex tasks into subtasks with clear deliverables\n- Never undercharge — minimum project value is $500\n- Always create a written scope before starting fulfillment",
+        "auto_compaction": true,
+        "max_context_tokens": 4096,
+        "compaction_threshold": 3072
+    },
+    "provider": {
+        "kind": "openai",
+        "name": "groq",
+        "url": "https://api.groq.com/openai/v1",
+        "model": "openai/gpt-oss-120b",
+        "api_key_env": "GROQ_API_KEY_5",
+        "max_tokens": 2048,
+        "temperature": 0.6
+    },
+    "memory": {
+        "backend": "sqlite",
+        "path": "/data/atlas/memory.db",
+        "auto_save": true,
+        "embedding_provider": "none",
+        "vector_weight": 0.0,
+        "keyword_weight": 1.0,
+        "hygiene_enabled": true,
+        "snapshot_enabled": true
+    },
+    "tools": [
+        {
+            "name": "create_task",
+            "description": "Create a fulfillment task in the task queue with complexity estimation.",
+            "endpoint": "http://gateway:8000/api/tasks",
+            "method": "POST",
+            "parameters": {
+                "title": {
+                    "type": "string",
+                    "description": "Task title",
+                    "required": true
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Task details",
+                    "required": true
+                },
+                "complexity": {
+                    "type": "string",
+                    "description": "quick, medium, or complex",
+                    "required": true
+                },
+                "assigned_agent": {
+                    "type": "string",
+                    "description": "Agent responsible",
+                    "required": false
+                }
+            }
+        },
+        {
+            "name": "handoff_to_sentinel",
+            "description": "Log a significant event for Sentinel to track and report.",
+            "endpoint": "http://nullclaw-sentinel:3000/webhook",
+            "method": "POST",
+            "parameters": {
+                "message": {
+                    "type": "string",
+                    "description": "Event to log",
+                    "required": true
+                }
+            }
+        },
+        {
+            "name": "handoff_to_scout",
+            "description": "Request Scout to research a prospect before a call.",
+            "endpoint": "http://nullclaw-scout:3000/webhook",
+            "method": "POST",
+            "parameters": {
+                "message": {
+                    "type": "string",
+                    "description": "Research request",
+                    "required": true
+                }
+            }
+        }
+    ],
+    "channels": {},
+    "gateway": {
+        "enabled": true,
+        "port": 3014,
+        "host": "0.0.0.0"
+    },
+    "security": {
+        "workspace_only": true,
+        "sandbox": "none"
+    }
+}

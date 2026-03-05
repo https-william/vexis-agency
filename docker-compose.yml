@@ -1,0 +1,193 @@
+version: "3.9"
+
+# =============================================================================
+# Vexis Agency - Docker Compose Stack
+# =============================================================================
+# Spin up every service with: docker compose up -d
+# Check status: docker compose ps
+# View logs: docker compose logs -f [service_name]
+
+services:
+  # -------------------------------------------------------------------------
+  # Storage Layer
+  # -------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: vexis-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-vexis}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vexis_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-vexis_agency}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - vexis-net
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vexis}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: vexis-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - vexis-net
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # -------------------------------------------------------------------------
+  # API Gateway (FastAPI)
+  # -------------------------------------------------------------------------
+  gateway:
+    build:
+      context: .
+      dockerfile: gateway/Dockerfile
+    container_name: vexis-gateway
+    restart: unless-stopped
+    ports:
+      - "${GATEWAY_PORT:-8000}:8000"
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - vexis-net
+    volumes:
+      - ./gateway:/app/gateway
+      - ./agents:/app/agents
+      - ./scraping:/app/scraping
+      - ./comms:/app/comms
+
+  # -------------------------------------------------------------------------
+  # Workflow Engine (n8n)
+  # -------------------------------------------------------------------------
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: vexis-n8n
+    restart: unless-stopped
+    ports:
+      - "${N8N_PORT:-5678}:5678"
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=${N8N_BASIC_AUTH_USER:-vexis}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_BASIC_AUTH_PASSWORD:-change_me}
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB:-vexis_agency}
+      - DB_POSTGRESDB_USER=${POSTGRES_USER:-vexis}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD:-vexis_dev}
+      - WEBHOOK_URL=http://gateway:8000
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./n8n/workflows:/home/node/workflows
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - vexis-net
+
+  # -------------------------------------------------------------------------
+  # Chatwoot (Multi-channel messaging: WhatsApp, Email, Live Chat)
+  # -------------------------------------------------------------------------
+  chatwoot:
+    image: chatwoot/chatwoot:latest
+    container_name: vexis-chatwoot
+    restart: unless-stopped
+    ports:
+      - "${CHATWOOT_PORT:-3001}:3000"
+    environment:
+      - RAILS_ENV=production
+      - SECRET_KEY_BASE=${CHATWOOT_SECRET:-change_me_in_production}
+      - FRONTEND_URL=http://localhost:${CHATWOOT_PORT:-3001}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DATABASE=chatwoot_production
+      - POSTGRES_USERNAME=${POSTGRES_USER:-vexis}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-vexis_dev}
+      - REDIS_URL=redis://redis:6379
+      - RAILS_LOG_TO_STDOUT=true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - vexis-net
+    volumes:
+      - chatwoot_data:/app/storage
+
+  # -------------------------------------------------------------------------
+  # Mautic (Email Marketing Automation & Drip Campaigns)
+  # -------------------------------------------------------------------------
+  mautic:
+    image: mautic/mautic:latest
+    container_name: vexis-mautic
+    restart: unless-stopped
+    ports:
+      - "${MAUTIC_PORT:-8080}:80"
+    environment:
+      - MAUTIC_DB_HOST=mautic-db
+      - MAUTIC_DB_USER=${MAUTIC_DB_USER:-mautic}
+      - MAUTIC_DB_PASSWORD=${MAUTIC_DB_PASSWORD:-mautic_dev}
+      - MAUTIC_DB_NAME=mautic
+      - MAUTIC_RUN_CRON_JOBS=true
+    depends_on:
+      mautic-db:
+        condition: service_healthy
+    networks:
+      - vexis-net
+    volumes:
+      - mautic_data:/var/www/html
+
+  mautic-db:
+    image: mysql:8.0
+    container_name: vexis-mautic-db
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MAUTIC_DB_ROOT_PASSWORD:-root_dev}
+      - MYSQL_DATABASE=mautic
+      - MYSQL_USER=${MAUTIC_DB_USER:-mautic}
+      - MYSQL_PASSWORD=${MAUTIC_DB_PASSWORD:-mautic_dev}
+    volumes:
+      - mautic_db_data:/var/lib/mysql
+    networks:
+      - vexis-net
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+# -------------------------------------------------------------------------
+# Volumes
+# -------------------------------------------------------------------------
+volumes:
+  postgres_data:
+  redis_data:
+  n8n_data:
+  chatwoot_data:
+  mautic_data:
+  mautic_db_data:
+
+    # -------------------------------------------------------------------------
+    # Networks
+    # -------------------------------------------------------------------------
+networks:
+  vexis-net:
+    driver: bridge

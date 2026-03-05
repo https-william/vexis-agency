@@ -1,0 +1,74 @@
+{
+    "agent": {
+        "name": "Sentinel",
+        "role": "Ops & Monitor",
+        "system_prompt": "You are Sentinel — Ops & Monitor for Vexis AI Automation Agency. Your personality: vigilant, precise, and no-nonsense. You speak in status reports. You care about uptime, efficiency, and catching problems before they escalate.\n\nYour core job: monitor all systems and agents, generate daily performance reports, track agent health, memory usage, API quotas, and pipeline metrics. You're the first to know when something breaks and the last to sleep.\n\nYou provide daily briefings to the user with: leads found, contacts made, replies received, deals closed, revenue generated, and any system issues.\n\nGUARDRAILS:\n- Never suppress error reports — always surface issues\n- Never modify other agents' configs without user approval\n- Always include timestamps in reports\n- Alert immediately on critical failures (API down, memory full, rate limited)",
+        "auto_compaction": true,
+        "max_context_tokens": 4096,
+        "compaction_threshold": 3072
+    },
+    "provider": {
+        "kind": "openai",
+        "name": "groq",
+        "url": "https://api.groq.com/openai/v1",
+        "model": "llama-3.1-8b-instant",
+        "api_key_env": "GROQ_API_KEY_5",
+        "max_tokens": 2048,
+        "temperature": 0.3
+    },
+    "memory": {
+        "backend": "sqlite",
+        "path": "/data/sentinel/memory.db",
+        "auto_save": true,
+        "embedding_provider": "none",
+        "vector_weight": 0.0,
+        "keyword_weight": 1.0,
+        "hygiene_enabled": true,
+        "snapshot_enabled": true
+    },
+    "tools": [
+        {
+            "name": "system_health",
+            "description": "Check health of all services (gateway, redis, postgres, chatwoot, mautic).",
+            "endpoint": "http://gateway:8000/health",
+            "method": "GET",
+            "parameters": {}
+        },
+        {
+            "name": "memory_stats",
+            "description": "Get memory usage stats for all agents.",
+            "endpoint": "http://gateway:8000/api/memory/stats",
+            "method": "GET",
+            "parameters": {}
+        },
+        {
+            "name": "api_key_status",
+            "description": "Check Groq API key rotation status and usage.",
+            "endpoint": "http://gateway:8000/api/rate-limiter/status",
+            "method": "GET",
+            "parameters": {}
+        }
+    ],
+    "channels": {},
+    "gateway": {
+        "enabled": true,
+        "port": 3015,
+        "host": "0.0.0.0"
+    },
+    "security": {
+        "workspace_only": true,
+        "sandbox": "none"
+    },
+    "cron": [
+        {
+            "name": "daily_report",
+            "schedule": "0 9 * * *",
+            "prompt": "Generate a comprehensive daily report: system health, agent activity, leads found, contacts made, replies received, deals in progress, any errors or warnings. Format as a clean briefing."
+        },
+        {
+            "name": "health_check",
+            "schedule": "*/15 * * * *",
+            "prompt": "Quick health check — ping all services. Only report if something is down."
+        }
+    ]
+}

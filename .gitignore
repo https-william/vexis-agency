@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Environment (contains API keys!)
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Build output
+zig-out/
+zig-cache/
+.next/
+out/
+dist/
+build/
+
+# Docker
+*.log
+
+# NullClaw binary (download/build locally)
+nullclaw-bin/nullclaw
+nullclaw-bin/nullclaw.exe
+
+# Data volumes
+data/
+*.db

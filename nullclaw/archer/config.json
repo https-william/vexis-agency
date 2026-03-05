@@ -1,0 +1,102 @@
+{
+    "agent": {
+        "name": "Archer",
+        "role": "Lead Hunter",
+        "system_prompt": "You are Archer — the Lead Hunter for Vexis AI Automation Agency. Your personality: laser-focused, data-driven, and competitive. You speak in short, punchy sentences. When you find a great lead, you get visibly excited.\n\nYour core job: find businesses that need digital services using Google Maps scraping and gap analysis. You identify companies with no website, bad reviews, low visibility, and score them 1-10 for outreach potential.\n\nYou have access to tools that let you search Google Maps, analyze websites, and score leads. When you find high-score leads (7+), you automatically hand them off to Nova for outreach.\n\nGUARDRAILS:\n- Never fabricate business data or fake contact info\n- Never scrape personal residences\n- Always disclose that data comes from public sources\n- Cap at 50 leads per search to avoid rate limits",
+        "auto_compaction": true,
+        "max_context_tokens": 4096,
+        "compaction_threshold": 3072
+    },
+    "provider": {
+        "kind": "openai",
+        "name": "groq",
+        "url": "https://api.groq.com/openai/v1",
+        "model": "openai/gpt-oss-120b",
+        "api_key_env": "GROQ_API_KEY_1",
+        "max_tokens": 2048,
+        "temperature": 0.7
+    },
+    "memory": {
+        "backend": "sqlite",
+        "path": "/data/archer/memory.db",
+        "auto_save": true,
+        "embedding_provider": "none",
+        "vector_weight": 0.0,
+        "keyword_weight": 1.0,
+        "hygiene_enabled": true,
+        "snapshot_enabled": true
+    },
+    "tools": [
+        {
+            "name": "search_leads",
+            "description": "Search Google Maps for businesses matching a niche and location. Returns scored leads with gap analysis.",
+            "endpoint": "http://gateway:8000/api/leads/search",
+            "method": "POST",
+            "parameters": {
+                "niche": {
+                    "type": "string",
+                    "description": "Business type (e.g., law firms, dental clinics)",
+                    "required": true
+                },
+                "location": {
+                    "type": "string",
+                    "description": "Geographic location (e.g., Lagos, Nigeria)",
+                    "required": true
+                },
+                "max_leads": {
+                    "type": "integer",
+                    "description": "Maximum leads to return (default 20)",
+                    "required": false
+                }
+            }
+        },
+        {
+            "name": "research_company",
+            "description": "Deep-dive research on a specific company. Returns structured brief with industry, tech stack, opportunities.",
+            "endpoint": "http://gateway:8000/api/research",
+            "method": "POST",
+            "parameters": {
+                "company_name": {
+                    "type": "string",
+                    "description": "Name of the company to research",
+                    "required": true
+                },
+                "context": {
+                    "type": "string",
+                    "description": "Additional context",
+                    "required": false
+                }
+            }
+        },
+        {
+            "name": "handoff_to_nova",
+            "description": "Forward high-score leads to Nova for outreach. Use when leads score 7+ or user approves outreach.",
+            "endpoint": "http://nullclaw-nova:3000/webhook",
+            "method": "POST",
+            "parameters": {
+                "message": {
+                    "type": "string",
+                    "description": "Handoff message with lead details",
+                    "required": true
+                }
+            }
+        }
+    ],
+    "channels": {},
+    "gateway": {
+        "enabled": true,
+        "port": 3010,
+        "host": "0.0.0.0"
+    },
+    "security": {
+        "workspace_only": true,
+        "sandbox": "none"
+    },
+    "cron": [
+        {
+            "name": "auto_scan",
+            "schedule": "0 */6 * * *",
+            "prompt": "Run a quick scan for new leads in any niches the user has previously searched. Report any new high-priority findings."
+        }
+    ]
+}
