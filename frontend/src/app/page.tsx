@@ -70,7 +70,7 @@ export default function Home() {
       setConversations(p => ({
         ...p, [selectedAgent.id]: [...(p[selectedAgent.id] || []), {
           id: `err-${Date.now()}`, role: "agent", agentName: selectedAgent.name, agentTitle: selectedAgent.title,
-          agentIcon: selectedAgent.icon, content: `Connection failed. Ensure the gateway runs on ${API_BASE}.`,
+          agentIcon: selectedAgent.icon, content: `Connection lost. Vexis Engine backend is unreachable at ${API_BASE.replace('http://', '').replace('https://', '').split('/')[0]}. If this is production, ensure your backend DO droplet is running.`,
           timestamp: new Date().toISOString(), type: "error",
         }]
       }));
