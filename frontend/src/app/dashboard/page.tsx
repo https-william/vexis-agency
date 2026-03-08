@@ -190,7 +190,7 @@ export default function DashboardLayout() {
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-[var(--color-vexis-bg)]/20 relative">
       {/* Bottom Glass Dock Navigation */}
-      <nav className="absolute z-50 bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-1.5 p-2.5 rounded-[24px] glass border border-white/10 shadow-2xl backdrop-blur-3xl">
+      <nav className="!absolute z-50 bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-1.5 p-[10px] rounded-[24px] glass border border-white/10 shadow-2xl backdrop-blur-3xl w-max">
         <div className="flex items-center justify-center w-10 h-10 rounded-[14px] btn-primary shadow-md mr-2">
           <svg className="w-5 h-5 text-white drop-shadow-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg>
         </div>
