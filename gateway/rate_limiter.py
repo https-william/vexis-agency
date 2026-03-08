@@ -74,9 +74,13 @@ class GroqKeyRotator:
         
         logger.info(f"GroqKeyRotator initialized with {len(self.keys)} keys")
 
-    async def initialize(self, redis_client: aioredis.Redis):
+    async def initialize(self, redis_client: Optional[aioredis.Redis] = None):
         """Connect to Redis for persistent usage tracking."""
         self._redis = redis_client
+        if not self._redis:
+            logger.warning("No Redis client provided to rate limiter. Usage will be kept in memory only.")
+            return
+
         # Load any saved state
         for key, usage in self.keys.items():
             saved = await self._redis.hgetall(f"groq:key:{usage.key_id}")

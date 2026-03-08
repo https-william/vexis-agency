@@ -73,8 +73,8 @@ export interface ChatMessage {
   metadata?: Record<string, unknown>;
 }
 
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-export const WS_BASE = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000";
+export const API_BASE = "http://localhost:8000";
+export const WS_BASE = "ws://localhost:8000";
 
 // NullClaw agent instances (when deployed)
 // Each agent runs as its own 678KB NullClaw binary on a dedicated port
@@ -88,7 +88,7 @@ export const NULLCLAW_PORTS: Record<string, number> = {
 };
 
 // Use NullClaw endpoints when available, otherwise fall back to Python gateway
-export const USE_NULLCLAW = process.env.NEXT_PUBLIC_USE_NULLCLAW === "true";
+export const USE_NULLCLAW = false;
 
 export function getAgentEndpoint(agentId: string): string {
   if (USE_NULLCLAW && NULLCLAW_PORTS[agentId]) {

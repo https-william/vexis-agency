@@ -17,10 +17,14 @@ Architecture:
 """
 
 import logging
-from typing import TypedDict, Annotated, Optional
+import re
+import json
+from typing import TypedDict, Annotated, Optional, Any, Dict, List
 from datetime import datetime
 
 from groq import AsyncGroq
+from agents.agent_tools import TOOLS_SCHEMA, TOOLS_MAP
+from agents.utils import summarize_context
 
 logger = logging.getLogger("vexis.langgraph_engine")
 
@@ -161,12 +165,8 @@ class LangGraphEngine:
         # Build messages
         messages = [{"role": "system", "content": state["system_prompt"]}]
 
-        # Add memory context if available
-        if state["memory_context"]:
-            messages.append({
-                "role": "system",
-                "content": state["memory_context"],
-            })
+        # system_prompt already contains memory_context via build_system_prompt()
+        # so we don't need to append it again here.
 
         # Add conversation history (last 10 messages for context window)
         for msg in state["conversation_history"][-10:]:
@@ -194,21 +194,85 @@ class LangGraphEngine:
                 ),
             })
 
-        try:
-            response = await self._client.chat.completions.create(
-                model=model,
-                messages=messages,
-                temperature=0.7,
-                max_tokens=2048,
-            )
-            state["response"] = response.choices[0].message.content
-            state["metadata"]["tokens_used"] = response.usage.total_tokens if response.usage else 0
-        except Exception as e:
-            logger.error(f"Act step failed for {state['agent_name']}: {e}")
-            state["response"] = (
-                f"I encountered an error processing your request. "
-                f"Error: {str(e)}. Please try again or contact Sentinel for system status."
-            )
+        # Tool execution loop
+        while state["iteration"] < state["max_iterations"]:
+            try:
+                # 1. Call LLM with tools
+                response = await self._client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    tools=TOOLS_SCHEMA,
+                    tool_choice="auto",
+                    temperature=0.7,
+                    max_tokens=450,
+                )
+                
+                msg = response.choices[0].message
+                
+                # Check for tool calls
+                if msg.tool_calls:
+                    messages.append(msg)
+                    
+                    for tool_call in msg.tool_calls:
+                        tool_name = tool_call.function.name
+                        tool_args = json.loads(tool_call.function.arguments)
+                        
+                        logger.info(f"{state['agent_name']} calling tool: {tool_name}({tool_args})")
+                        
+                        # Execute tool
+                        tool_func = TOOLS_MAP.get(tool_name)
+                        if tool_func:
+                            # Update metadata for transparency
+                            if "tool_calls" not in state["metadata"]:
+                                state["metadata"]["tool_calls"] = []
+                            state["metadata"]["tool_calls"].append({"name": tool_name, "args": tool_args})
+                            
+                            result = await tool_func(**tool_args)
+                            
+                            # Add tool result to conversation history for next LLM turn
+                            messages.append({
+                                "role": "tool",
+                                "tool_call_id": tool_call.id,
+                                "name": tool_name,
+                                "content": str(result),
+                            })
+                        else:
+                            messages.append({
+                                "role": "tool",
+                                "tool_call_id": tool_call.id,
+                                "name": tool_name,
+                                "content": f"Error: Tool '{tool_name}' not found.",
+                            })
+                    
+                    # --- Mid-loop TPM Guard (Llama logic) ---
+                    # If messages list grows too large (est > 6000 tokens), summarize the trail
+                    total_chars = sum(len(str(m.get("content", "") if isinstance(m, dict) else getattr(m, "content", ""))) for m in messages)
+                    if total_chars > 24000: # ~6000 tokens
+                        logger.info(f"{state['agent_name']}: Internal context threshold reached. Summarizing trail.")
+                        # Summarize everything EXCEPT the system prompt (messages[0])
+                        # Keep the system prompt at [0]
+                        internal_summary = await summarize_context(messages[1:], api_key=self._client.api_key)
+                        if internal_summary:
+                            messages = [
+                                messages[0], # System prompt
+                                {"role": "system", "content": f"[CONTINUATION CONTEXT]\n{internal_summary}"}
+                            ]
+                    
+                    # Continue loop to let LLM process tool results
+                    continue
+                
+                # No more tool calls — capture final response
+                state["response"] = msg.content
+                state["metadata"]["tokens_used"] = response.usage.total_tokens if response.usage else 0
+                break
+                
+            except Exception as e:
+                logger.error(f"Act step failed for {state['agent_name']}: {e}")
+                state["response"] = (
+                    f"I encountered an error processing your request. "
+                    f"Error: {str(e)}. Please try again or contact Sentinel for system status."
+                )
+                break
 
         return state
 
@@ -255,20 +319,27 @@ class LangGraphEngine:
                     "Archer reported verified emails that appear to be placeholders"
                 )
 
-        # Check for handoff triggers
-        handoff_patterns = {
-            "let atlas handle": "atlas",
-            "hand off to atlas": "atlas",
-            "scout should research": "scout",
-            "echo can draft": "echo",
-            "sentinel should check": "sentinel",
-            "archer should find": "archer",
-            "nova should follow up": "nova",
-        }
-        for pattern, target in handoff_patterns.items():
-            if pattern in response_lower:
-                state["handoff_triggered"] = target
-                break
+        # Check for handoff triggers using standardized tag: :::handoff [agent_id]:::
+        handoff_match = re.search(r':::handoff\s+\[?(\w+)\]?:::', state["response"], re.IGNORECASE)
+        if handoff_match:
+            state["handoff_triggered"] = handoff_match.group(1).lower()
+            # Clean the response to remove the tag
+            state["response"] = re.sub(r':::handoff\s+\[?(\w+)\]?:::.*$', '', state["response"], flags=re.IGNORECASE | re.DOTALL).strip()
+        else:
+            # Fallback to simple keyword check for safety
+            handoff_patterns = {
+                "let atlas handle": "atlas",
+                "hand off to atlas": "atlas",
+                "scout should research": "scout",
+                "echo can draft": "echo",
+                "sentinel should check": "sentinel",
+                "archer should find": "archer",
+                "nova should follow up": "nova",
+            }
+            for pattern, target in handoff_patterns.items():
+                if pattern in response_lower:
+                    state["handoff_triggered"] = target
+                    break
 
         state["quality_ok"] = len(state["guardrail_violations"]) == 0
         

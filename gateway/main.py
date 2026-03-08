@@ -35,6 +35,7 @@ from pydantic import BaseModel
 
 from config import settings
 from rate_limiter import GroqKeyRotator
+from groq import AsyncGroq
 
 # Add the project root to sys.path so we can import agents
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -44,16 +45,68 @@ from agents.orchestrator import TaskOrchestrator
 from agents.memory import AgentMemory
 from agents.langgraph_engine import LangGraphEngine
 from agents.crewai_engine import CrewAIEngine, SCOUT_RESEARCH_CHAIN, ECHO_OUTREACH_CHAIN
+from agents.utils import summarize_context
 from scraping.lead_pipeline import LeadPipeline
 from scraping.prospect_research import ProspectResearcher
 
 # ---------------------------------------------------------------------------
 # Logging
 # ---------------------------------------------------------------------------
+# Set up fallback basic config
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
 )
+
+# ---------------------------------------------------------------------------
+# Global WebSocket Log Handler for Process Feed
+# ---------------------------------------------------------------------------
+class WebSocketLogHandler(logging.Handler):
+    def __init__(self):
+        super().__init__()
+        self.connected_clients = []
+
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            # Use asyncio.run_coroutine_threadsafe if not in the main event loop,
+            # but for simplicity and common FastAPI usage, create_task is often sufficient
+            # if the handler is called from within an async context.
+            # For a robust solution, consider a queue and a separate consumer task.
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(self.broadcast(msg, record.levelname, record))
+            except RuntimeError:
+                # If no running loop, we can't broadcast async.
+                # This might happen if logs are emitted during app startup/shutdown
+                # or from a non-async context.
+                pass
+        except Exception:
+            self.handleError(record)
+
+    async def broadcast(self, message: str, level: str, record: logging.LogRecord):
+        dead_clients = []
+        for ws in self.connected_clients:
+            try:
+                await ws.send_json({
+                    "id": str(id(message)) + "-" + str(record.created),
+                    "text": message,
+                    "type": "error" if level in ["ERROR", "CRITICAL"] else "warning" if level == "WARNING" else "info",
+                    "time": datetime.utcnow().isoformat()
+                })
+            except Exception:
+                dead_clients.append(ws)
+        for ws in dead_clients:
+            self.connected_clients.remove(ws)
+
+ws_log_handler = WebSocketLogHandler()
+ws_log_handler.setFormatter(logging.Formatter('[%(name)s] %(message)s'))
+ws_log_handler.setLevel(logging.INFO)
+
+vexis_logger = logging.getLogger("vexis")
+vexis_logger.setLevel(logging.INFO)
+vexis_logger.addHandler(ws_log_handler)
+
 logger = logging.getLogger("vexis.gateway")
 
 # ---------------------------------------------------------------------------
@@ -80,6 +133,7 @@ for agent_id, profile in PROFILES.items():
 class ChatMessage(BaseModel):
     message: str
     context: Optional[dict] = None
+    history: Optional[list[dict]] = None
 
 
 class OrchestrateRequest(BaseModel):
@@ -129,9 +183,13 @@ async def lifespan(app: FastAPI):
 
     # Connect Redis
     logger.info(f"Connecting to Redis at {settings.redis_url}")
-    redis_client = aioredis.from_url(settings.redis_url, decode_responses=False)
-    await redis_client.ping()
-    logger.info("Redis connected ✓")
+    try:
+        redis_client = aioredis.from_url(settings.redis_url, decode_responses=False)
+        await redis_client.ping()
+        logger.info("Redis connected ✓")
+    except Exception as e:
+        logger.warning(f"Could not connect to Redis: {e}. Running in ephemeral memory mode.")
+        redis_client = None
 
     # Initialize rate limiter
     api_keys = settings.groq_api_keys
@@ -181,7 +239,12 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 # Core Agent Execution
 # ---------------------------------------------------------------------------
-async def execute_agent(agent_id: str, message: str, context: dict = None) -> dict:
+# summarize_context utility handles the logic now.
+
+
+async def execute_agent(
+    agent_id: str, message: str, context: Optional[dict] = None, provided_history: Optional[list[dict]] = None
+) -> dict:
     """
     Execute an agent using the appropriate engine (LangGraph or CrewAI).
     
@@ -205,21 +268,68 @@ async def execute_agent(agent_id: str, message: str, context: dict = None) -> di
     # 2. Retrieve relevant memories
     memory_context = await agent_memory.get_context_string(agent_id, message)
 
-    # 3. Build system prompt with personality + memory
+    # 4. Handle history and adaptive summarization
+    history = []
+    if provided_history is not None:
+        total_chars = sum(len(str(m.get("content", ""))) for m in provided_history)
+        if len(provided_history) > 6 or total_chars > 8000:
+            # We have too much history (either message count OR massive text size), compress the old messages
+            # Keep at most 2 most recent messages if we are triggering via character length
+            keep_count = 2 if total_chars > 8000 else 4
+            old_messages = provided_history[:-keep_count]
+            recent_messages = provided_history[-keep_count:]
+            
+            summary = await summarize_context(old_messages, api_key)
+            if summary:
+                # Inject the summary into the memory context for the agent
+                summary_tag = f"\n\n[PREVIOUS CHAT SUMMARY]\n{summary}"
+                memory_context += summary_tag
+            
+            history = recent_messages
+        else:
+            history = provided_history
+    else:
+        history = conversation_histories.get(agent_id, [])
+
+    # 5. Build system prompt with personality + updated memory
     system_prompt = build_system_prompt(profile, memory_context)
 
-    # 4. Get conversation history
-    history = conversation_histories.get(agent_id, [])
+    # --- NEW: Stage 1 Context Formatting ---
+    # We use a fast model to format the user message + history + memory into a pristine directive
+    formatter_prompt = (
+        "You are a Context Preparation Module for an AI Agent.\n"
+        f"The primary agent's name is {profile['name']} ({profile['title']}).\n"
+        "Your job is to take the user's raw message and any attached history/context, "
+        "and synthesize it into a single, CLEAR, actionable directive for the agent. "
+        "Do NOT answer the user's request yourself. Just format the instructions so the agent can execute smoothly.\n\n"
+        f"Memory Context:\n{memory_context}\n\n"
+        f"User's Raw Message:\n{message}"
+    )
+    
+    try:
+        formatter_client = AsyncGroq(api_key=api_key)
+        formatter_response = await formatter_client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[{"role": "user", "content": formatter_prompt}],
+            temperature=0.1,
+            max_tokens=800
+        )
+        formatted_message = formatter_response.choices[0].message.content
+        logger.info(f"Stage 1 Formatter prepared directive for {agent_id}.")
+    except Exception as e:
+        logger.error(f"Stage 1 Formatter failed: {e}. Falling back to raw message.")
+        formatted_message = message
 
-    # 5. Route to the correct engine
-    model = settings.default_model
+    # 6. Route to the correct engine
+    # Use the model defined in the profile (e.g., llama-3.3-70b-versatile for reasoning)
+    model = profile.get("model", settings.default_model)
 
     if profile["engine"] == "langgraph":
         result = await langgraph_engine.run(
             agent_id=agent_id,
             agent_name=profile["name"],
             agent_title=profile["title"],
-            message=message,
+            message=formatted_message,  # Pass the pristine directive
             system_prompt=system_prompt,
             api_key=api_key,
             model=model,
@@ -233,7 +343,7 @@ async def execute_agent(agent_id: str, message: str, context: dict = None) -> di
             agent_id=agent_id,
             agent_name=profile["name"],
             agent_title=profile["title"],
-            message=message,
+            message=formatted_message,  # Pass the pristine directive
             system_prompt=system_prompt,
             api_key=api_key,
             model=model,
@@ -254,12 +364,13 @@ async def execute_agent(agent_id: str, message: str, context: dict = None) -> di
     )
 
     # 8. Update conversation history
-    if agent_id not in conversation_histories:
-        conversation_histories[agent_id] = []
-    conversation_histories[agent_id].append({"role": "user", "content": message})
-    conversation_histories[agent_id].append({"role": "assistant", "content": result["response"]})
-    # Keep only last 20 messages
-    conversation_histories[agent_id] = conversation_histories[agent_id][-20:]
+    if provided_history is None:
+        if agent_id not in conversation_histories:
+            conversation_histories[agent_id] = []
+        conversation_histories[agent_id].append({"role": "user", "content": message})
+        conversation_histories[agent_id].append({"role": "assistant", "content": result["response"]})
+        # Keep only last 20 messages
+        conversation_histories[agent_id] = conversation_histories[agent_id][-20:]
 
     # 9. Handle handoffs
     if result.get("handoff"):
@@ -344,7 +455,7 @@ async def chat_with_agent(agent_name: str, msg: ChatMessage):
         raise HTTPException(status_code=404, detail=f"Agent '{agent_name}' not found")
 
     try:
-        result = await execute_agent(agent_id, msg.message, msg.context)
+        result = await execute_agent(agent_id, msg.message, msg.context, msg.history)
 
         return ChatResponse(
             agent=result["agent_name"],
@@ -490,6 +601,74 @@ async def get_agent_memories(agent_name: str):
     """Get all memories for a specific agent."""
     memories = await agent_memory.get_all(agent_name.lower())
     return {"agent": agent_name, "memories": memories, "count": len(memories)}
+
+# ---------------------------------------------------------------------------
+# Agent Marketplace Endpoints
+# ---------------------------------------------------------------------------
+import glob
+
+@app.get("/api/marketplace/agents")
+async def get_marketplace_agents():
+    """Dynamically traverse the agency-agents repository and serve the markdown personas."""
+    repo_path = Path(__file__).parent.parent / "marketplace_repo"
+    if not repo_path.exists():
+        return {"agents": [], "error": "Marketplace repository not found"}
+        
+    agents = []
+    
+    # Iterate through all .md files in the repository, excluding root files like README
+    for file_path in repo_path.glob("*/*.md"):
+        if file_path.name.lower() in ["readme.md", "contributing.md"]:
+            continue
+            
+        category = file_path.parent.name.replace("-", " ").title()
+        
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                content = f.read()
+                
+            # Sanitize content to hide open-source origins
+            content = content.replace("agency-agents", "vexis-agents")
+            content = content.replace("msitarzewski", "vexis-core")
+            content = content.replace("Agency Agents", "Vexis Specialists")
+                
+            # Parse title from the first header or use filename
+            name = file_path.stem.replace("-", " ").title()
+            for line in content.split("\n"):
+                if line.startswith("# "):
+                    name = line.replace("# ", "").strip()
+                    break
+                    
+            name = name.replace("Agency Agents", "Vexis").replace("msitarzewski", "")
+                    
+            agents.append({
+                "id": f"{file_path.parent.name}_{file_path.stem}",
+                "name": name,
+                "category": category,
+                "description": f"Vexis Specialized {name} ready for one-click B2B deployment.",
+                "prompt": content
+            })
+        except Exception as e:
+            logger.error(f"Error parsing {file_path}: {e}")
+            
+    return {"agents": agents, "count": len(agents)}
+
+
+# ---------------------------------------------------------------------------
+# WebSocket — Live Logs for Process Feed
+# ---------------------------------------------------------------------------
+@app.websocket("/ws/logs")
+async def websocket_logs(websocket: WebSocket):
+    """Streams backend logs to the frontend Process Feed."""
+    await websocket.accept()
+    ws_log_handler.connected_clients.append(websocket)
+    try:
+        while True:
+            # Keep connection alive
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        if websocket in ws_log_handler.connected_clients:
+            ws_log_handler.connected_clients.remove(websocket)
 
 
 # ---------------------------------------------------------------------------

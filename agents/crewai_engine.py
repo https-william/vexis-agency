@@ -12,6 +12,7 @@ Architecture:
 """
 
 import logging
+import re
 from typing import Optional
 from datetime import datetime
 
@@ -117,6 +118,13 @@ class CrewAIEngine:
             # Agent-specific post-processing
             content = self._post_process(agent_id, content)
 
+            # Detect handoff
+            handoff_target = None
+            handoff_match = re.search(r':::handoff\s+\[?(\w+)\]?:::', content, re.IGNORECASE)
+            if handoff_match:
+                handoff_target = handoff_match.group(1).lower()
+                content = re.sub(r':::handoff\s+\[?(\w+)\]?:::.*$', '', content, flags=re.IGNORECASE | re.DOTALL).strip()
+
             return {
                 "response": content,
                 "metadata": {
@@ -124,7 +132,7 @@ class CrewAIEngine:
                     "engine": "crewai",
                     "steps": 1,
                 },
-                "handoff": None,
+                "handoff": handoff_target,
             }
 
         except Exception as e:
