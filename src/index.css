@@ -1,0 +1,168 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #020617;
+  --text: #FFFFFF;
+  --accent: #3B82F6;
+  --glass: rgba(255, 255, 255, 0.03);
+  --border: rgba(255, 255, 255, 0.1);
+  
+  /* Preset Colors */
+  --color-obsidian: #020617;
+  --color-electric: #3B82F6;
+  --color-ivory: #F8F9FF;
+  --color-slate: #94A3B8;
+  --color-lavender: #E0E7FF;
+  --color-depth: #1E293B;
+}
+
+.light {
+  --bg: #F8F9FF;
+  --text: #1E293B;
+  --accent: #4F46E5;
+  --glass: rgba(0, 0, 0, 0.02);
+  --border: rgba(0, 0, 0, 0.05);
+
+  --color-obsidian: #F8F9FF; /* Inverted for light mode presets if used */
+  --color-electric: #4F46E5;
+}
+
+@layer base {
+  :root {
+    --bg: #020617;
+    --text: #FFFFFF;
+    --accent: #3B82F6;
+    --glass: rgba(255, 255, 255, 0.03);
+    --border: rgba(255, 255, 255, 0.1);
+  }
+
+  .light {
+    --bg: #F8F9FF;
+    --text: #1E293B;
+    --accent: #4F46E5;
+    --glass: rgba(0, 0, 0, 0.02);
+    --border: rgba(0, 0, 0, 0.05);
+  }
+
+  html, body {
+    @apply font-inter antialiased overflow-x-hidden transition-colors duration-500;
+    background-color: var(--bg);
+    color: var(--text);
+  }
+  
+  /* Global Noise Overlay */
+  body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    opacity: 0.05;
+    z-index: -1;
+    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  }
+}
+
+@layer utilities {
+  .drama-italic {
+    @apply font-playfair italic;
+  }
+  
+  .vertical-stripes {
+    background: repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 100px,
+      rgba(255, 255, 255, 0.02) 100px,
+      rgba(255, 255, 255, 0.02) 101px
+    );
+  }
+
+  .light .vertical-stripes {
+    background: repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 100px,
+      rgba(0, 0, 0, 0.03) 100px,
+      rgba(0, 0, 0, 0.03) 101px
+    );
+  }
+
+  .logo-aura {
+    @apply rounded-full overflow-hidden;
+    filter: drop-shadow(0 0 30px var(--accent));
+    /* Circular mask to hide square edges of logos and blend them */
+    -webkit-mask-image: radial-gradient(circle, black 60%, transparent 100%);
+    mask-image: radial-gradient(circle, black 60%, transparent 100%);
+  }
+
+  .bg-v-gradient {
+    background: linear-gradient(to right, #000000 0%, var(--accent) 50%, #000000 100%);
+    opacity: 0.15;
+  }
+
+  .light .bg-v-gradient {
+    background: linear-gradient(to right, var(--color-ivory) 0%, var(--accent) 50%, var(--color-ivory) 100%);
+    opacity: 0.1;
+  }
+  
+  .glass-card {
+    background: var(--glass);
+    border-color: var(--border);
+    backdrop-filter: blur(20px);
+    @apply shadow-[0_8px_32px_0_rgba(0,0,0,0.37)];
+  }
+
+  .glass-button-3d {
+    @apply relative overflow-hidden transition-all duration-500 active:translate-y-0.5;
+    /* The 'Glass Box' encasing effect */
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.02) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(12px);
+    box-shadow: 
+      /* External drop shadow */
+      0 10px 25px -5px rgba(0, 0, 0, 0.5), 
+      /* Inner bottom depth */
+      inset 0 -4px 6px rgba(0, 0, 0, 0.3), 
+      /* Inner top highlight */
+      inset 0 1px 1px rgba(255, 255, 255, 0.4),
+      /* Outer glow/ring */
+      0 0 0 1px rgba(255, 255, 255, 0.08);
+    perspective: 1000px;
+  }
+
+  .glass-button-3d::before {
+    content: '';
+    @apply absolute inset-0 opacity-10 pointer-events-none;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+    transform: skewX(-20deg) translateX(-150%);
+    transition: transform 0.8s ease;
+  }
+
+  .glass-button-3d:hover::before {
+    transform: skewX(-20deg) translateX(150%);
+  }
+
+  .glass-button-3d::after {
+    content: '';
+    @apply absolute inset-0 opacity-20 pointer-events-none border border-white/20 rounded-[inherit];
+    /* This creates the 'box' wrap effect */
+    box-shadow: inset 0 0 15px rgba(255, 255, 255, 0.1);
+  }
+  
+  .data-mono {
+    @apply font-jetbrains;
+  }
+  
+  .magnetic-hover {
+    transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+  
+  .magnetic-hover:hover {
+    transform: scale(1.03) translateY(-1px);
+  }
+}

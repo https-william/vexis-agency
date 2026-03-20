@@ -1,0 +1,6 @@
+/* Remove default Vite styles as we use Tailwind v4 in index.css */
+#root {
+  max-width: 100vw;
+  margin: 0;
+  padding: 0;
+}
