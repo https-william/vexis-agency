@@ -1,6 +1,24 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+  --color-obsidian: #020617;
+  --color-electric: #3B82F6;
+  --color-ivory: #F8F9FF;
+  --color-slate: #94A3B8;
+  --color-lavender: #E0E7FF;
+  --color-depth: #1E293B;
+  
+  --font-inter: "Inter", sans-serif;
+  --font-playfair: "Playfair Display", serif;
+  --font-jetbrains: "JetBrains Mono", monospace;
+  
+  --breakpoint-xs: 375px;
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1440px;
+}
 
 :root {
   --bg: #020617;
@@ -8,14 +26,6 @@
   --accent: #3B82F6;
   --glass: rgba(255, 255, 255, 0.03);
   --border: rgba(255, 255, 255, 0.1);
-  
-  /* Preset Colors */
-  --color-obsidian: #020617;
-  --color-electric: #3B82F6;
-  --color-ivory: #F8F9FF;
-  --color-slate: #94A3B8;
-  --color-lavender: #E0E7FF;
-  --color-depth: #1E293B;
 }
 
 .light {
@@ -25,27 +35,11 @@
   --glass: rgba(0, 0, 0, 0.02);
   --border: rgba(0, 0, 0, 0.05);
 
-  --color-obsidian: #F8F9FF; /* Inverted for light mode presets if used */
+  --color-obsidian: #F8F9FF;
   --color-electric: #4F46E5;
 }
 
 @layer base {
-  :root {
-    --bg: #020617;
-    --text: #FFFFFF;
-    --accent: #3B82F6;
-    --glass: rgba(255, 255, 255, 0.03);
-    --border: rgba(255, 255, 255, 0.1);
-  }
-
-  .light {
-    --bg: #F8F9FF;
-    --text: #1E293B;
-    --accent: #4F46E5;
-    --glass: rgba(0, 0, 0, 0.02);
-    --border: rgba(0, 0, 0, 0.05);
-  }
-
   html, body {
     @apply font-inter antialiased overflow-x-hidden transition-colors duration-500;
     background-color: var(--bg);
@@ -95,7 +89,6 @@
   .logo-aura {
     @apply rounded-full overflow-hidden;
     filter: drop-shadow(0 0 30px var(--accent));
-    /* Circular mask to hide square edges of logos and blend them */
     -webkit-mask-image: radial-gradient(circle, black 60%, transparent 100%);
     mask-image: radial-gradient(circle, black 60%, transparent 100%);
   }
@@ -119,18 +112,13 @@
 
   .glass-button-3d {
     @apply relative overflow-hidden transition-all duration-500 active:translate-y-0.5;
-    /* The 'Glass Box' encasing effect */
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.02) 100%);
     border: 1px solid rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(12px);
     box-shadow: 
-      /* External drop shadow */
       0 10px 25px -5px rgba(0, 0, 0, 0.5), 
-      /* Inner bottom depth */
       inset 0 -4px 6px rgba(0, 0, 0, 0.3), 
-      /* Inner top highlight */
       inset 0 1px 1px rgba(255, 255, 255, 0.4),
-      /* Outer glow/ring */
       0 0 0 1px rgba(255, 255, 255, 0.08);
     perspective: 1000px;
   }
@@ -150,7 +138,6 @@
   .glass-button-3d::after {
     content: '';
     @apply absolute inset-0 opacity-20 pointer-events-none border border-white/20 rounded-[inherit];
-    /* This creates the 'box' wrap effect */
     box-shadow: inset 0 0 15px rgba(255, 255, 255, 0.1);
   }
   
