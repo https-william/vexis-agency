@@ -19,7 +19,7 @@ type ServiceType = 'VOICE' | 'WHATSAPP' | 'CRM'
 
 export default function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [service, setService] = useState<ServiceType>('VOICE')
-  const [isSidebarOpen, setSidebarOpen] = useState(true)
+  const [isSidebarOpen] = useState(true)
 
   useEffect(() => {
     const ctx = gsap.context(() => {
