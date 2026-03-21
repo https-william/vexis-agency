@@ -7,6 +7,7 @@
   --color-slate: #94A3B8;
   --color-lavender: #E0E7FF;
   --color-depth: #1E293B;
+  --color-growth: #10b981;
   
   --font-inter: "Inter", sans-serif;
   --font-playfair: "Playfair Display", serif;
@@ -24,6 +25,7 @@
   --bg: #020617;
   --text: #FFFFFF;
   --accent: #3B82F6;
+  --accent-warm: #10b981;
   --glass: rgba(255, 255, 255, 0.03);
   --border: rgba(255, 255, 255, 0.1);
 }
@@ -32,11 +34,13 @@
   --bg: #F8F9FF;
   --text: #1E293B;
   --accent: #4F46E5;
+  --accent-warm: #059669;
   --glass: rgba(0, 0, 0, 0.02);
   --border: rgba(0, 0, 0, 0.05);
 
   --color-obsidian: #F8F9FF;
   --color-electric: #4F46E5;
+  --color-growth: #059669;
 }
 
 @layer base {

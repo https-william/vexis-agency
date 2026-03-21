@@ -8,6 +8,7 @@ import Pricing from './components/Pricing'
 import Footer from './components/Footer'
 import Auth from './components/Auth'
 import Dashboard from './components/Dashboard'
+import LeadBackbone from './components/LeadBackbone'
 
 function App() {
   const [view, setView] = useState<'LANDING' | 'AUTH' | 'DASHBOARD'>('LANDING')
@@ -48,6 +49,7 @@ function App() {
       <Features />
       <Philosophy />
       <Protocol />
+      <LeadBackbone />
       <Pricing />
       <Footer />
     </main>
