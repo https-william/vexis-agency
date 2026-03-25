@@ -1,19 +1,15 @@
 import { useEffect, useState } from 'react'
-import { Sun, Moon, X, Menu } from 'lucide-react' // Added imports for icons
+import { Sun, Moon, X, Menu } from 'lucide-react'
 
-// NavLink component definition (added as it was used but not defined)
 const NavLink = ({ href, label }: { href: string, label: string }) => (
-  <a
-    href={href}
-    className="text-slate-600 dark:text-white/50 hover:text-slate-900 dark:hover:text-white transition-colors duration-300 text-sm font-medium"
-  >
+  <a href={href} className="text-[var(--muted)] hover:text-[var(--text)] transition-colors duration-200 text-sm font-medium">
     {label}
   </a>
 )
 
 export default function Navbar({ onAuth, theme, onToggleTheme }: { onAuth: () => void, theme: 'light' | 'dark', onToggleTheme: () => void }) {
-  const [isScrolled, setIsScrolled] = useState(false) // Changed 'scrolled' to 'isScrolled'
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false) // Added new state
+  const [isScrolled, setIsScrolled] = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20)
@@ -22,56 +18,59 @@ export default function Navbar({ onAuth, theme, onToggleTheme }: { onAuth: () =>
   }, [])
 
   return (
-    <nav className={`fixed top-6 left-1/2 -translate-x-1/2 z-[100] w-[95%] max-w-7xl transition-all duration-500 ${
-      isScrolled ? 'top-4' : 'top-6'
-    }`}>
-      <div className={`relative flex items-center justify-between px-6 py-4 rounded-pill transition-all duration-500 ${
-        isScrolled
-          ? 'bg-white/10 dark:bg-black/40 backdrop-blur-2xl border border-white/10 shadow-2xl'
-          : 'bg-transparent'
+    <nav className={`fixed top-6 left-1/2 -translate-x-1/2 z-[100] w-[95%] max-w-5xl transition-all duration-500 ${isScrolled ? 'top-4' : 'top-6'}`}>
+      <div className={`relative flex items-center justify-between px-6 py-3.5 rounded-2xl transition-all duration-500 ${
+        isScrolled ? 'glass-panel-strong shadow-lg' : 'bg-transparent'
       }`}>
-        <div className="flex items-center gap-3 group cursor-pointer transition-transform duration-300 hover:scale-105">
-          <div className="relative w-10 h-10 flex items-center justify-center logo-aura">
-            <img 
-              src="/vexis-logo.png" 
-              alt="Vexis Logo" 
-              className="w-8 h-8 object-contain"
-            />
+        <div className="flex items-center gap-2.5 cursor-pointer">
+          <div className="relative w-8 h-8 flex items-center justify-center logo-aura">
+            <img src="/vexis-logo.png" alt="Vexis" className="w-6 h-6 object-contain" />
           </div>
-          <span className="text-xl font-black tracking-tighter uppercase hidden sm:block dark:text-white text-slate-900">Vexis</span>
+          <span className="text-lg font-bold tracking-tight hidden sm:block">Vexis</span>
         </div>
 
-        <div className="hidden md:flex items-center gap-10">
-          <NavLink href="#features" label="Sectors" />
-          <NavLink href="#philosophy" label="Philosophy" />
-          <NavLink href="#pricing" label="Reserve" />
+        <div className="hidden md:flex items-center gap-8">
+          <NavLink href="#features" label="Solutions" />
+          <NavLink href="#philosophy" label="About" />
+          <NavLink href="#membership" label="Plans" />
+          <NavLink href="#reserve" label="Contact" />
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <button
             onClick={onToggleTheme}
-            className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center hover:bg-white/5 transition-all cursor-pointer relative overflow-hidden group"
+            className="clay-button w-9 h-9 flex items-center justify-center"
           >
-            <div className={`absolute transition-all duration-500 ${theme === 'dark' ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
-              <Sun className="w-4 h-4 text-white" />
-            </div>
-            <div className={`absolute transition-all duration-500 ${theme === 'light' ? 'translate-y-0 opacity-100' : '-translate-y-10 opacity-0'}`}>
-              <Moon className="w-4 h-4 text-slate-800" />
-            </div>
+            {theme === 'dark' 
+              ? <Sun className="w-3.5 h-3.5 text-[var(--muted)]" /> 
+              : <Moon className="w-3.5 h-3.5 text-[var(--muted)]" />
+            }
           </button>
 
           <button
             onClick={onAuth}
-            className="hidden sm:flex glass-button-3d px-8 py-3 rounded-pill text-[10px] font-black uppercase tracking-widest text-white cursor-pointer"
+            className="hidden sm:flex clay-button clay-button-accent px-5 py-2.5 text-white text-xs font-semibold"
           >
-            Launch Terminal
+            Dashboard
           </button>
 
-          <button className="md:hidden p-2 text-white/50 hover:text-white" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
-            {isMobileMenuOpen ? <X /> : <Menu />}
+          <button className="md:hidden p-1.5 text-[var(--muted)]" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+            {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
       </div>
+
+      {isMobileMenuOpen && (
+        <div className="md:hidden mt-2 p-6 glass-panel-strong rounded-2xl space-y-4">
+          <NavLink href="#features" label="Solutions" />
+          <NavLink href="#philosophy" label="About" />
+          <NavLink href="#membership" label="Plans" />
+          <NavLink href="#reserve" label="Contact" />
+          <button onClick={onAuth} className="w-full py-3 bg-electric text-white text-sm font-semibold rounded-xl">
+            Dashboard
+          </button>
+        </div>
+      )}
     </nav>
   )
 }
